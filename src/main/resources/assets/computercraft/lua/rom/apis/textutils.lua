@@ -22,8 +22,36 @@ function slowWrite( sText, nRate )
     end
 end
 
+function slowWriteUtf8( sText, nRate )
+    if nRate ~= nil and type( nRate ) ~= "number" then
+        error( "bad argument #2 (expected number, got " .. type( nRate ) .. ")", 2 )
+    end
+    nRate = nRate or 20
+    if nRate < 0 then
+        error( "Rate must be positive", 2 )
+    end
+    local nSleep = 1 / nRate
+        
+    sText = tostring( sText )
+    local x,y = term.getCursorPos()
+    local len = utf8.len( sText )
+    
+    for n=1,len do
+        term.setCursorPos( x, y )
+        sleep( nSleep )
+        local nLines = writeutf8( utf8.sub( sText, 1, n ) )
+        local newX, newY = term.getCursorPos()
+        y = newY - nLines
+    end
+end
+
 function slowPrint( sText, nRate )
     slowWrite( sText, nRate )
+    print()
+end
+
+function slowPrintUtf8( sText, nRate )
+    slowWriteUtf8( sText, nRate )
     print()
 end
 
@@ -109,6 +137,39 @@ function pagedPrint( _sText, _nFreeLines )
     return result
 end
 
+function pagedPrintUtf8( _sText, _nFreeLines )
+    if _nFreeLines ~= nil and type( _nFreeLines ) ~= "number" then
+        error( "bad argument #2 (expected number, got " .. type( _nFreeLines ) .. ")", 2 ) 
+    end
+    -- Setup a redirector
+    local oldTerm = term.current()
+    local newTerm = {}
+    for k,v in pairs( oldTerm ) do
+        newTerm[k] = v
+    end
+    newTerm.scroll = makePagedScroll( oldTerm, _nFreeLines )
+    term.redirect( newTerm )
+
+    -- Print the text
+    local result
+    local ok, err = pcall( function()
+        if _sText ~= nil then
+            result = printUtf8( _sText )
+        else
+            result = printUtf8()
+        end
+    end )
+
+    -- Removed the redirector
+    term.redirect( oldTerm )
+
+    -- Propogate errors
+    if not ok then
+        error( err, 0 )
+    end
+    return result
+end
+
 local function tabulateCommon( bPaged, ... )
     local tAll = { ... }
     for k,v in ipairs( tAll ) do
@@ -165,11 +226,75 @@ local function tabulateCommon( bPaged, ... )
     end    
 end
 
+local function tabulateCommonUtf8( bPaged, ... )
+    local tAll = { ... }
+    for k,v in ipairs( tAll ) do
+        if type( v ) ~= "number" and type( v ) ~= "table" then
+            error( "bad argument #"..k.." (expected number/table, got " .. type( v ) .. ")", 3 ) 
+        end
+    end
+    
+    local w,h = term.getSize()
+    local nMaxLen = w / 8
+    for n, t in ipairs( tAll ) do
+        if type(t) == "table" then
+            for n, sItem in pairs(t) do
+                nMaxLen = math.max( utf8.len( sItem ) + 1, nMaxLen )
+            end
+        end
+    end
+    local nCols = math.floor( w / nMaxLen )
+    local nLines = 0
+    local function newLine()
+        if bPaged and nLines >= (h-3) then
+            pagedPrintUtf8()
+        else
+            printUtf8()
+        end
+        nLines = nLines + 1
+    end
+    
+    local function drawCols( _t )
+        local nCol = 1
+        for n, s in ipairs( _t ) do
+            if nCol > nCols then
+                nCol = 1
+                newLine()
+            end
+
+            local cx, cy = term.getCursorPos()
+            cx = 1 + ((nCol - 1) * nMaxLen)
+            term.setCursorPos( cx, cy )
+            term.writeutf8( s )
+
+            nCol = nCol + 1      
+        end
+        printutf8()
+    end
+    for n, t in ipairs( tAll ) do
+        if type(t) == "table" then
+            if #t > 0 then
+                drawCols( t )
+            end
+        elseif type(t) == "number" then
+            term.setTextColor( t )
+        end
+    end    
+end
+
 function tabulate( ... )
     tabulateCommon( false, ... )
 end
 
 function pagedTabulate( ... )
+    tabulateCommon( true, ... )
+end
+
+function tabulateUtf8( ... )
+    tabulateCommon( false, ... )
+end
+
+function pagedTabulateUtf8( ... )
     tabulateCommon( true, ... )
 end
 

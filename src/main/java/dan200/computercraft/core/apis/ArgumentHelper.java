@@ -1,6 +1,9 @@
 package dan200.computercraft.core.apis;
 
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.shared.utf.UtfException;
+import dan200.computercraft.shared.utf.UtfString;
+import dan200.computercraft.shared.util.StringUtil;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -117,6 +120,26 @@ public final class ArgumentHelper
         }
     }
 
+    @Nonnull
+    public static UtfString getUtfString( @Nonnull Object[] args, int index ) throws LuaException
+    {
+        if( index >= args.length ) throw badArgument( index, "string", "nil" );
+        Object value = args[ index ];
+        if( value instanceof String )
+        {
+        	final byte[] bytes = StringUtil.encodeString(value.toString());
+            try {
+				return new UtfString(bytes, 0, -1);
+			} catch (UtfException e) {
+				throw new LuaException(e.getMessage());
+			}
+        }
+        else
+        {
+            throw badArgument( index, "string", value );
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @Nonnull
     public static Map<Object, Object> getTable( @Nonnull Object[] args, int index ) throws LuaException
@@ -199,6 +222,28 @@ public final class ArgumentHelper
         else if( value instanceof String )
         {
             return (String) value;
+        }
+        else
+        {
+            throw badArgument( index, "string", value );
+        }
+    }
+
+    public static UtfString optUtfString( @Nonnull Object[] args, int index, UtfString def ) throws LuaException
+    {
+        Object value = index < args.length ? args[ index ] : null;
+        if( value == null )
+        {
+            return def;
+        }
+        else if( value instanceof String )
+        {
+        	final byte[] bytes = StringUtil.encodeString(value.toString());
+            try {
+				return new UtfString(bytes, 0, -1);
+			} catch (UtfException e) {
+				throw new LuaException(e.getMessage());
+			}
         }
         else
         {

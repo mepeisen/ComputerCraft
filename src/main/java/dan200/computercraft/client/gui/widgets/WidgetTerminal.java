@@ -8,10 +8,12 @@ package dan200.computercraft.client.gui.widgets;
 
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.client.gui.FixedWidthFontRenderer;
+import dan200.computercraft.client.gui.FontDefinition;
 import dan200.computercraft.core.terminal.Terminal;
 import dan200.computercraft.core.terminal.TextBuffer;
 import dan200.computercraft.shared.computer.core.IComputer;
 import dan200.computercraft.shared.computer.core.IComputerContainer;
+import dan200.computercraft.shared.utf.UtfString;
 import dan200.computercraft.shared.util.Colour;
 import dan200.computercraft.shared.util.Palette;
 import net.minecraft.client.Minecraft;
@@ -119,18 +121,29 @@ public class WidgetTerminal extends Widget
 
                     // Filter the string
                     clipboard = ChatAllowedCharacters.filterAllowedCharacters( clipboard );
+                    UtfString utf = UtfString.fromString(clipboard);
 
                     if( !clipboard.isEmpty() )
                     {
                         // Clip to 512 characters
-                        if( clipboard.length() > 512 )
+                        if( utf.length() > 512 )
                         {
-                            clipboard = clipboard.substring( 0, 512 );
+                            utf = utf.sub( 0, 512 );
+                        }
+                        if (clipboard.length() > 512)
+                        {
+                        	clipboard = clipboard.substring(0, 512);
+                        	// fix corrupt surrogates if needed
+                        	if (Character.isSurrogate(clipboard.charAt(511)))
+                        	{
+                        		clipboard = clipboard.substring(0, 511);
+                        	}
                         }
 
                         // Queue the "paste" event
                         queueEvent( "paste", new Object[]{
-                                clipboard
+                                clipboard,
+                                utf.toString()
                         } );
                     }
                 }
@@ -158,7 +171,16 @@ public class WidgetTerminal extends Widget
                 {
                     // Queue the "char" event
                     queueEvent( "char", new Object[]{
-                        Character.toString( ch )
+                        Character.toString( ch ), // normal
+                        Character.toString( ch ) // utf
+                    } );
+                }
+                else if( ch < 0 || ch > 255 )
+                {
+                    // Queue the "char" event
+                    queueEvent( "char", new Object[]{
+                        '?', // normal
+                        Character.toString( ch ) // utf
                     } );
                 }
             }
@@ -395,13 +417,14 @@ public class WidgetTerminal extends Widget
 
                 // Draw margins
                 TextBuffer emptyLine = new TextBuffer( ' ', tw );
+            	final FontDefinition font = (FontDefinition) ComputerCraft.getFont(m_computer.getComputer().getTerminal().getFontName());
                 if( m_topMargin > 0 )
                 {
-                    fontRenderer.drawString( emptyLine, x, startY, terminal.getTextColourLine( 0 ), terminal.getBackgroundColourLine( 0 ), m_leftMargin, m_rightMargin, greyscale, palette );
+                    fontRenderer.drawString( font, emptyLine, x, startY, terminal.getTextColourLine( 0 ), terminal.getBackgroundColourLine( 0 ), m_leftMargin, m_rightMargin, greyscale, palette );
                 }
                 if( m_bottomMargin > 0 )
                 {
-                    fontRenderer.drawString( emptyLine, x, startY + 2 * m_bottomMargin + ( th - 1 ) * FixedWidthFontRenderer.FONT_HEIGHT, terminal.getTextColourLine( th - 1 ), terminal.getBackgroundColourLine( th - 1 ), m_leftMargin, m_rightMargin, greyscale, palette );
+                    fontRenderer.drawString( font, emptyLine, x, startY + 2 * m_bottomMargin + ( th - 1 ) * FixedWidthFontRenderer.FONT_HEIGHT, terminal.getTextColourLine( th - 1 ), terminal.getBackgroundColourLine( th - 1 ), m_leftMargin, m_rightMargin, greyscale, palette );
                 }
 
                 // Draw lines
@@ -410,7 +433,7 @@ public class WidgetTerminal extends Widget
                     TextBuffer text = terminal.getLine( line );
                     TextBuffer colour = terminal.getTextColourLine( line );
                     TextBuffer backgroundColour = terminal.getBackgroundColourLine( line );
-                    fontRenderer.drawString( text, x, y, colour, backgroundColour, m_leftMargin, m_rightMargin, greyscale, palette );
+                    fontRenderer.drawString( font, text, x, y, colour, backgroundColour, m_leftMargin, m_rightMargin, greyscale, palette );
                     y += FixedWidthFontRenderer.FONT_HEIGHT;
                 }
 
@@ -420,6 +443,7 @@ public class WidgetTerminal extends Widget
                     TextBuffer cursorColour = new TextBuffer( "0123456789abcdef".charAt( terminal.getTextColour() ), 1 );
 
                     fontRenderer.drawString(
+                    		font,
                             cursor,
                             x + FixedWidthFontRenderer.FONT_WIDTH * tx,
                             startY + m_topMargin + FixedWidthFontRenderer.FONT_HEIGHT * ty,

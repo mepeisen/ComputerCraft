@@ -12,6 +12,7 @@ import dan200.computercraft.api.lua.ILuaObject;
 import dan200.computercraft.api.lua.ILuaTask;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.core.apis.ILuaAPI;
+import dan200.computercraft.core.apis.Utf8API;
 import dan200.computercraft.core.computer.Computer;
 import dan200.computercraft.core.computer.ITask;
 import dan200.computercraft.core.computer.MainThread;
@@ -122,6 +123,11 @@ public class LuaJLuaMachine implements ILuaMachine
 
         m_softAbortMessage = null;
         m_hardAbortMessage = null;
+        
+        // utf support
+        final Utf8API string = new Utf8API(m_computer.getAPIEnvironment());
+        string.setfenv(m_globals);
+        m_globals.set( "utf8", string.call() );
     }
     
     @Override

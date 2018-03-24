@@ -85,8 +85,14 @@ public class HTTPRequest implements HTTPTask.IHTTPTask
     private int m_responseCode = -1;
     private Map<String, String> m_responseHeaders;
     private String m_errorMessage;
+    private boolean m_doNotWrapUtf8;
 
-    public HTTPRequest( String urlString, URL url, final String postText, final Map<String, String> headers, boolean binary ) throws HTTPRequestException
+    public HTTPRequest( String urlString, URL url, final String postText, final Map<String, String> headers, boolean binary) throws HTTPRequestException
+    {
+    	this(urlString, url, postText, headers, binary, false);
+    }
+
+    public HTTPRequest( String urlString, URL url, final String postText, final Map<String, String> headers, boolean binary, boolean doNotWrapUtf8 ) throws HTTPRequestException
     {
         // Parse the URL
         m_urlString = urlString;
@@ -94,6 +100,7 @@ public class HTTPRequest implements HTTPTask.IHTTPTask
         m_binary = binary;
         m_postText = postText;
         m_headers = headers;
+        m_doNotWrapUtf8 = doNotWrapUtf8;
     }
 
     public InputStream getContents()
@@ -217,7 +224,7 @@ public class HTTPRequest implements HTTPTask.IHTTPTask
             // Queue the "http_success" event
             InputStream contents = getContents();
             Object result = wrapStream(
-                m_binary ? new BinaryInputHandle( contents ) : new EncodedInputHandle( contents, m_encoding ),
+                m_binary ? new BinaryInputHandle( contents ) : new EncodedInputHandle( contents, m_encoding, m_doNotWrapUtf8 ),
                 m_responseCode, m_responseHeaders
             );
             environment.queueEvent( "http_success", new Object[] { url, result } );
@@ -233,7 +240,7 @@ public class HTTPRequest implements HTTPTask.IHTTPTask
             if( contents != null )
             {
                 result = wrapStream(
-                    m_binary ? new BinaryInputHandle( contents ) : new EncodedInputHandle( contents, m_encoding ),
+                    m_binary ? new BinaryInputHandle( contents ) : new EncodedInputHandle( contents, m_encoding, m_doNotWrapUtf8 ),
                     m_responseCode, m_responseHeaders
                 );
             }

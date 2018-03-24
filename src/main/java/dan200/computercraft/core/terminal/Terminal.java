@@ -5,6 +5,7 @@
  */
 
 package dan200.computercraft.core.terminal;
+import dan200.computercraft.shared.utf.UtfString;
 import dan200.computercraft.shared.util.Palette;
 import net.minecraft.nbt.NBTTagCompound;
 
@@ -28,6 +29,8 @@ public class Terminal
     private final Palette m_palette;
 
     private boolean m_changed;
+    
+    private String m_fontname;
 
     public Terminal( int width, int height )
     {
@@ -54,6 +57,8 @@ public class Terminal
         m_changed = false;
 
         m_palette = new Palette();
+        
+        m_fontname = "LEGACY";
     }
 
     public void reset()
@@ -202,7 +207,33 @@ public class Terminal
         }
     }
 
+    public void blit( UtfString text, UtfString textColour, UtfString backgroundColour )
+    {
+        int x = m_cursorX;
+        int y = m_cursorY;
+        if( y >= 0 && y < m_height )
+        {
+            m_text[ y ].write( text, x );
+            m_textColour[ y ].write( textColour, x );
+            m_backgroundColour[ y ].write( backgroundColour, x );
+            m_changed = true;
+        }
+    }
+
     public void write( String text )
+    {
+        int x = m_cursorX;
+        int y = m_cursorY;
+        if( y >= 0 && y < m_height )
+        {
+            m_text[ y ].write( text, x );
+            m_textColour[ y ].fill( base16.charAt( m_cursorColour ), x, x + text.length() );
+            m_backgroundColour[ y ].fill( base16.charAt( m_cursorBackgroundColour ), x, x + text.length() );
+            m_changed = true;
+        }
+    }
+
+    public void write( UtfString text )
     {
         int x = m_cursorX;
         int y = m_cursorY;
@@ -284,6 +315,14 @@ public class Terminal
         m_backgroundColour[y].write( backgroundColour );
         m_changed = true;
     }
+
+    public void setLine( int y, UtfString text, UtfString textColour, UtfString backgroundColour )
+    {
+        m_text[y].write( text );
+        m_textColour[y].write( textColour );
+        m_backgroundColour[y].write( backgroundColour );
+        m_changed = true;
+    }
     
     public TextBuffer getTextColourLine( int y )
     {
@@ -335,6 +374,7 @@ public class Terminal
         {
             m_palette.writeToNBT( nbttagcompound );
         }
+        nbttagcompound.setString("font_name", m_fontname);
         return nbttagcompound;
     }
 
@@ -368,6 +408,23 @@ public class Terminal
         {
             m_palette.readFromNBT( nbttagcompound );
         }
+        if (nbttagcompound.hasKey("font_name"))
+        {
+            m_fontname = nbttagcompound.getString("font_name");
+        }
         m_changed = true;
     }
+
+	public String getFontName() {
+		return m_fontname;
+	}
+
+	public void setFontName(String name) {
+		if (!name.equals(m_fontname))
+		{
+			m_fontname = name;
+			m_changed = true;
+		}
+	}
+	
 }

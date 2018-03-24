@@ -21,6 +21,11 @@ local tHex = {
 local type = type
 local string_rep = string.rep
 local string_sub = string.sub
+local string_len = string.len
+local utf8_rep = utf8.rep
+local utf8_sub = utf8.sub
+local utf8_len = utf8.len
+local utf8_convertAscii = utf8.convertAscii
 local table_unpack = table.unpack
 
 function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
@@ -42,7 +47,7 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
         for n=0,15 do
             local nColor = 2^n
             local sHex = tHex[nColor]
-            tEmptyColorLines[nColor] = string_rep( sHex, nWidth )
+            tEmptyColorLines[nColor] = utf8_rep( sHex, nWidth )
         end
     end
 
@@ -96,7 +101,7 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
     local function redrawLine( n )
         local tLine = tLines[ n ]
         parent.setCursorPos( nX, nY + n - 1 )
-        parent.blit( tLine.text, tLine.textColor, tLine.backgroundColor )
+        parent.blitutf8( tLine.text, tLine.textColor, tLine.backgroundColor )
     end
 
     local function redraw()
@@ -113,7 +118,7 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
 
     local function internalBlit( sText, sTextColor, sBackgroundColor )
         local nStart = nCursorX
-        local nEnd = nStart + #sText - 1
+        local nEnd = nStart + utf8_len(sText) - 1
         if nCursorY >= 1 and nCursorY <= nHeight then
             if nStart <= nWidth and nEnd >= 1 then
                 -- Modify line
@@ -127,14 +132,14 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
                     if nStart < 1 then
                         local nClipStart = 1 - nStart + 1
                         local nClipEnd = nWidth - nStart + 1
-                        sClippedText = string_sub( sText, nClipStart, nClipEnd )
-                        sClippedTextColor = string_sub( sTextColor, nClipStart, nClipEnd )
-                        sClippedBackgroundColor = string_sub( sBackgroundColor, nClipStart, nClipEnd )
+                        sClippedText = utf8_sub( sText, nClipStart, nClipEnd )
+                        sClippedTextColor = utf8_sub( sTextColor, nClipStart, nClipEnd )
+                        sClippedBackgroundColor = utf8_sub( sBackgroundColor, nClipStart, nClipEnd )
                     elseif nEnd > nWidth then
                         local nClipEnd = nWidth - nStart + 1
-                        sClippedText = string_sub( sText, 1, nClipEnd )
-                        sClippedTextColor = string_sub( sTextColor, 1, nClipEnd )
-                        sClippedBackgroundColor = string_sub( sBackgroundColor, 1, nClipEnd )
+                        sClippedText = utf8_sub( sText, 1, nClipEnd )
+                        sClippedTextColor = utf8_sub( sTextColor, 1, nClipEnd )
+                        sClippedBackgroundColor = utf8_sub( sBackgroundColor, 1, nClipEnd )
                     else
                         sClippedText = sText
                         sClippedTextColor = sTextColor
@@ -147,9 +152,9 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
                     local sNewText, sNewTextColor, sNewBackgroundColor
                     if nStart > 1 then
                         local nOldEnd = nStart - 1
-                        sNewText = string_sub( sOldText, 1, nOldEnd ) .. sClippedText
-                        sNewTextColor = string_sub( sOldTextColor, 1, nOldEnd ) .. sClippedTextColor
-                        sNewBackgroundColor = string_sub( sOldBackgroundColor, 1, nOldEnd ) .. sClippedBackgroundColor
+                        sNewText = utf8_sub( sOldText, 1, nOldEnd ) .. sClippedText
+                        sNewTextColor = utf8_sub( sOldTextColor, 1, nOldEnd ) .. sClippedTextColor
+                        sNewBackgroundColor = utf8_sub( sOldBackgroundColor, 1, nOldEnd ) .. sClippedBackgroundColor
                     else
                         sNewText = sClippedText
                         sNewTextColor = sClippedTextColor
@@ -157,9 +162,9 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
                     end
                     if nEnd < nWidth then
                         local nOldStart = nEnd + 1
-                        sNewText = sNewText .. string_sub( sOldText, nOldStart, nWidth )
-                        sNewTextColor = sNewTextColor .. string_sub( sOldTextColor, nOldStart, nWidth )
-                        sNewBackgroundColor = sNewBackgroundColor .. string_sub( sOldBackgroundColor, nOldStart, nWidth )
+                        sNewText = sNewText .. utf8_sub( sOldText, nOldStart, nWidth )
+                        sNewTextColor = sNewTextColor .. utf8_sub( sOldTextColor, nOldStart, nWidth )
+                        sNewBackgroundColor = sNewBackgroundColor .. utf8_sub( sOldBackgroundColor, nOldStart, nWidth )
                     end
 
                     tLine.text = sNewText
@@ -187,14 +192,31 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
 
     function window.write( sText )
         sText = tostring( sText )
-        internalBlit( sText, string_rep( tHex[ nTextColor ], #sText ), string_rep( tHex[ nBackgroundColor ], #sText ) )
+        sText = utf8_convertAscii(sText)
+        internalBlit( sText, utf8_rep( tHex[ nTextColor ], utf8_len(sText) ), utf8_rep( tHex[ nBackgroundColor ], utf8_len(sText) ) )
+    end
+
+    function window.writeutf8( sText )
+        sText = tostring( sText )
+        internalBlit( sText, utf8_rep( tHex[ nTextColor ], utf8_len(sText) ), utf8_rep( tHex[ nBackgroundColor ], utf8_len(sText) ) )
     end
 
     function window.blit( sText, sTextColor, sBackgroundColor )
         if type( sText ) ~= "string" then error( "bad argument #1 (expected string, got " .. type( sText ) .. ")", 2 ) end
         if type( sTextColor ) ~= "string" then error( "bad argument #2 (expected string, got " .. type( sTextColor ) .. ")", 2 ) end
         if type( sBackgroundColor ) ~= "string" then error( "bad argument #3 (expected string, got " .. type( sBackgroundColor ) .. ")", 2 ) end
-        if #sTextColor ~= #sText or #sBackgroundColor ~= #sText then
+        sText = utf8_convertAscii(sText)
+        if utf8_rep(sTextColor) ~= utf8_rep(sText) or utf8_rep(sBackgroundColor) ~= utf8_rep(sText) then
+            error( "Arguments must be the same length", 2 )
+        end
+        internalBlit( sText, sTextColor, sBackgroundColor )
+    end
+
+    function window.blitutf8( sText, sTextColor, sBackgroundColor )
+        if type( sText ) ~= "string" then error( "bad argument #1 (expected string, got " .. type( sText ) .. ")", 2 ) end
+        if type( sTextColor ) ~= "string" then error( "bad argument #2 (expected string, got " .. type( sTextColor ) .. ")", 2 ) end
+        if type( sBackgroundColor ) ~= "string" then error( "bad argument #3 (expected string, got " .. type( sBackgroundColor ) .. ")", 2 ) end
+        if utf8_len(sTextColor) ~= utf8_len(sText) or utf8_len(sBackgroundColor) ~= utf8_len(sText) then
             error( "Arguments must be the same length", 2 )
         end
         internalBlit( sText, sTextColor, sBackgroundColor )
@@ -445,15 +467,15 @@ function create( parent, nX, nY, nWidth, nHeight, bStartVisible )
                         tNewLines[y] = tOldLine
                     elseif nNewWidth < nWidth then
                         tNewLines[y] = {
-                            text = string_sub( tOldLine.text, 1, nNewWidth ),
-                            textColor = string_sub( tOldLine.textColor, 1, nNewWidth ),
-                            backgroundColor = string_sub( tOldLine.backgroundColor, 1, nNewWidth ),
+                            text = utf8_sub( tOldLine.text, 1, nNewWidth ),
+                            textColor = utf8_sub( tOldLine.textColor, 1, nNewWidth ),
+                            backgroundColor = utf8_sub( tOldLine.backgroundColor, 1, nNewWidth ),
                         }
                     else
                         tNewLines[y] = {
-                            text = tOldLine.text .. string_sub( sEmptyText, nWidth + 1, nNewWidth ),
-                            textColor = tOldLine.textColor .. string_sub( sEmptyTextColor, nWidth + 1, nNewWidth ),
-                            backgroundColor = tOldLine.backgroundColor .. string_sub( sEmptyBackgroundColor, nWidth + 1, nNewWidth ),
+                            text = tOldLine.text .. utf8_sub( sEmptyText, nWidth + 1, nNewWidth ),
+                            textColor = tOldLine.textColor .. utf8_sub( sEmptyTextColor, nWidth + 1, nNewWidth ),
+                            backgroundColor = tOldLine.backgroundColor .. utf8_sub( sEmptyBackgroundColor, nWidth + 1, nNewWidth ),
                         }
                     end
                 end

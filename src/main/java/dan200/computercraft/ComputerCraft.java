@@ -422,6 +422,12 @@ public class ComputerCraft
         }
     }
 
+    @Mod.EventHandler
+    public void postInit( FMLPostInitializationEvent event )
+    {
+    	proxy.postInit();
+    }
+
     public static String getVersion()
     {
         return "${version}";
@@ -954,7 +960,7 @@ public class ComputerCraft
         return modClass.getClassLoader().getResourceAsStream( subPath );
     }
 
-    private static File getContainingJar( Class<?> modClass )
+    public static File getContainingJar( Class<?> modClass )
     {
         String path = modClass.getProtectionDomain().getCodeSource().getLocation().getPath();
         int bangIndex = path.indexOf( "!" );
@@ -979,7 +985,7 @@ public class ComputerCraft
         return file;
     }
 
-    private static File getDebugCodeDir( Class<?> modClass )
+    public static File getDebugCodeDir( Class<?> modClass )
     {
         String path = modClass.getProtectionDomain().getCodeSource().getLocation().getPath();
         int bangIndex = path.indexOf("!");
@@ -1024,4 +1030,10 @@ public class ComputerCraft
     {
         turtleProxy.clearEntityDropConsumer( entity );
     }
+
+    public static Object getFont(final String fontName)
+    {
+        return proxy.getFont(fontName);
+    }
+    
 }

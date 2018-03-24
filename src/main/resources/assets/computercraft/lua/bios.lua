@@ -3,6 +3,7 @@ local nativegetfenv = getfenv
 if _VERSION == "Lua 5.1" then
     -- If we're on Lua 5.1, install parts of the Lua 5.2/5.3 API so that programs can be written against it
     local nativeload = load
+    local nativeloadutf8 = loadutf8
     local nativeloadstring = loadstring
     local nativesetfenv = setfenv
     function load( x, name, mode, env )
@@ -35,6 +36,53 @@ if _VERSION == "Lua 5.1" then
                 end
             else
                 local result, err = nativeload( x, name )
+                if result then
+                    if env then
+                        env._ENV = env
+                        nativesetfenv( result, env )
+                    end
+                    return result
+                else
+                    return nil, err
+                end
+            end
+        end )
+        if ok then
+            return p1, p2
+        else
+            error( p1, 2 )
+        end        
+    end
+    function loadutf8( x, name, mode, env )
+        if type( x ) ~= "string" and type( x ) ~= "function" then
+            error( "bad argument #1 (expected string or function, got " .. type( x ) .. ")", 2 ) 
+        end
+        if name ~= nil and type( name ) ~= "string" then
+            error( "bad argument #2 (expected string, got " .. type( name ) .. ")", 2 ) 
+        end
+        if mode ~= nil and type( mode ) ~= "string" then
+            error( "bad argument #3 (expected string, got " .. type( mode ) .. ")", 2 ) 
+        end
+        if env ~= nil and type( env) ~= "table" then
+            error( "bad argument #4 (expected table, got " .. type( env ) .. ")", 2 ) 
+        end
+        if mode ~= nil and mode ~= "t" then
+            error( "Binary chunk loading prohibited", 2 )
+        end
+        local ok, p1, p2 = pcall( function()        
+            if type(x) == "string" then
+                local result, err = nativeloadstring( x, name )
+                if result then
+                    if env then
+                        env._ENV = env
+                        nativesetfenv( result, env )
+                    end
+                    return result
+                else
+                    return nil, err
+                end
+            else
+                local result, err = nativeloadutf8( x, name )
                 if result then
                     if env then
                         env._ENV = env
@@ -269,6 +317,70 @@ function write( sText )
     return nLinesPrinted
 end
 
+function writeutf8( sText )
+    if type( sText ) ~= "string" and type( sText ) ~= "number" then
+        error( "bad argument #1 (expected string or number, got " .. type( sText ) .. ")", 2 ) 
+    end
+
+    local w,h = term.getSize()        
+    local x,y = term.getCursorPos()
+    
+    local nLinesPrinted = 0
+    local function newLine()
+        if y + 1 <= h then
+            term.setCursorPos(1, y + 1)
+        else
+            term.setCursorPos(1, h)
+            term.scroll(1)
+        end
+        x, y = term.getCursorPos()
+        nLinesPrinted = nLinesPrinted + 1
+    end
+    
+    -- Print the line with proper word wrapping
+    while utf8.len(sText) > 0 do
+        local whitespace = utf8.match( sText, "^[ \t]+" )
+        if whitespace then
+            -- Print whitespace
+            term.writeutf8( whitespace )
+            x,y = term.getCursorPos()
+            sText = utf8.sub( sText, utf8.len(whitespace) + 1 )
+        end
+        
+        local newline = utf8.match( sText, "^\n" )
+        if newline then
+            -- Print newlines
+            newLine()
+            sText = utf8.sub( sText, 2 )
+        end
+        
+        local text = utf8.match( sText, "^[^ \t\n]+" )
+        if text then
+            sText = utf8.sub( sText, utf8.len(text) + 1 )
+            if utf8.len(text) > w then
+                -- Print a multiline word                
+                while utf8.len( text ) > 0 do
+                    if x > w then
+                        newLine()
+                    end
+                    term.writeutf8( text )
+                    text = utf8.sub( text, (w-x) + 2 )
+                    x,y = term.getCursorPos()
+                end
+            else
+                -- Print a word normally
+                if x + utf8.len(text) - 1 > w then
+                    newLine()
+                end
+                term.writeutf8( text )
+                x,y = term.getCursorPos()
+            end
+        end
+    end
+    
+    return nLinesPrinted
+end
+
 function print( ... )
     local nLinesPrinted = 0
     local nLimit = select("#", ... )
@@ -283,6 +395,20 @@ function print( ... )
     return nLinesPrinted
 end
 
+function printutf8( ... )
+    local nLinesPrinted = 0
+    local nLimit = select("#", ... )
+    for n = 1, nLimit do
+        local s = tostring( select( n, ... ) )
+        if n < nLimit then
+            s = s .. "\t"
+        end
+        nLinesPrinted = nLinesPrinted + writeutf8( s )
+    end
+    nLinesPrinted = nLinesPrinted + writeutf8( "\n" )
+    return nLinesPrinted
+end
+
 function printError( ... )
     local oldColour
     if term.isColour() then
@@ -290,6 +416,18 @@ function printError( ... )
         term.setTextColour( colors.red )
     end
     print( ... )
+    if term.isColour() then
+        term.setTextColour( oldColour )
+    end
+end
+
+function printErrorUtf8( ... )
+    local oldColour
+    if term.isColour() then
+        oldColour = term.getTextColour()
+        term.setTextColour( colors.red )
+    end
+    printutf8( ... )
     if term.isColour() then
         term.setTextColour( oldColour )
     end
@@ -565,6 +703,276 @@ function read( _sReplaceChar, _tHistory, _fnComplete, _sDefault )
     return sLine
 end
 
+function readutf8( _sReplaceChar, _tHistory, _fnComplete, _sDefault )
+    if _sReplaceChar ~= nil and type( _sReplaceChar ) ~= "string" then
+        error( "bad argument #1 (expected string, got " .. type( _sReplaceChar ) .. ")", 2 ) 
+    end
+    if _tHistory ~= nil and type( _tHistory ) ~= "table" then
+        error( "bad argument #2 (expected table, got " .. type( _tHistory ) .. ")", 2 ) 
+    end
+    if _fnComplete ~= nil and type( _fnComplete ) ~= "function" then
+        error( "bad argument #3 (expected function, got " .. type( _fnComplete ) .. ")", 2 ) 
+    end
+    if _sDefault ~= nil and type( _sDefault ) ~= "string" then
+        error( "bad argument #4 (expected string, got " .. type( _sDefault ) .. ")", 2 ) 
+    end
+    term.setCursorBlink( true )
+
+    local sLine
+    if type( _sDefault ) == "string" then
+        sLine = _sDefault
+    else
+        sLine = ""
+    end
+    local nHistoryPos
+    local nPos = utf8.len(sLine)
+    if _sReplaceChar then
+        _sReplaceChar = utf8.sub( _sReplaceChar, 1, 1 )
+    end
+
+    local tCompletions
+    local nCompletion
+    local function recomplete()
+        if _fnComplete and nPos == utf8.len(sLine) then
+            tCompletions = _fnComplete( sLine )
+            if tCompletions and #tCompletions > 0 then
+                nCompletion = 1
+            else
+                nCompletion = nil
+            end
+        else
+            tCompletions = nil
+            nCompletion = nil
+        end
+    end
+
+    local function uncomplete()
+        tCompletions = nil
+        nCompletion = nil
+    end
+
+    local w = term.getSize()
+    local sx = term.getCursorPos()
+
+    local function redraw( _bClear )
+        local nScroll = 0
+        if sx + nPos >= w then
+            nScroll = (sx + nPos) - w
+        end
+
+        local cx,cy = term.getCursorPos()
+        term.setCursorPos( sx, cy )
+        local sReplace = (_bClear and " ") or _sReplaceChar
+        if sReplace then
+            term.writeutf8( utf8.rep( sReplace, math.max( utf8.len(sLine) - nScroll, 0 ) ) )
+        else
+            term.writeutf8( utf8.sub( sLine, nScroll + 1 ) )
+        end
+
+        if nCompletion then
+            local sCompletion = tCompletions[ nCompletion ]
+            local oldText, oldBg
+            if not _bClear then
+                oldText = term.getTextColor()
+                oldBg = term.getBackgroundColor()
+                term.setTextColor( colors.white )
+                term.setBackgroundColor( colors.gray )
+            end
+            if sReplace then
+                term.writeutf8( utf8.rep( sReplace, utf8.len( sCompletion ) ) )
+            else
+                term.writeutf8( sCompletion )
+            end
+            if not _bClear then
+                term.setTextColor( oldText )
+                term.setBackgroundColor( oldBg )
+            end
+        end
+
+        term.setCursorPos( sx + nPos - nScroll, cy )
+    end
+    
+    local function clear()
+        redraw( true )
+    end
+
+    recomplete()
+    redraw()
+
+    local function acceptCompletion()
+        if nCompletion then
+            -- Clear
+            clear()
+
+            -- Find the common prefix of all the other suggestions which start with the same letter as the current one
+            local sCompletion = tCompletions[ nCompletion ]
+            sLine = sLine .. sCompletion
+            nPos = utf8.len( sLine )
+
+            -- Redraw
+            recomplete()
+            redraw()
+        end
+    end
+    while true do
+        local sEvent, param, param2 = os.pullEvent()
+        if sEvent == "char" then
+            -- Typed key
+            clear()
+            sLine = utf8.sub( sLine, 1, nPos ) .. param2 .. utf8.sub( sLine, nPos + 1 )
+            nPos = nPos + 1
+            recomplete()
+            redraw()
+
+        elseif sEvent == "paste" then
+            -- Pasted text
+            clear()
+            sLine = utf8.sub( sLine, 1, nPos ) .. param2 .. utf8.sub( sLine, nPos + 1 )
+            nPos = nPos + utf8.len( param )
+            recomplete()
+            redraw()
+
+        elseif sEvent == "key" then
+            if param == keys.enter then
+                -- Enter
+                if nCompletion then
+                    clear()
+                    uncomplete()
+                    redraw()
+                end
+                break
+                
+            elseif param == keys.left then
+                -- Left
+                if nPos > 0 then
+                    clear()
+                    nPos = nPos - 1
+                    recomplete()
+                    redraw()
+                end
+                
+            elseif param == keys.right then
+                -- Right                
+                if nPos < utf8.len(sLine) then
+                    -- Move right
+                    clear()
+                    nPos = nPos + 1
+                    recomplete()
+                    redraw()
+                else
+                    -- Accept autocomplete
+                    acceptCompletion()
+                end
+
+            elseif param == keys.up or param == keys.down then
+                -- Up or down
+                if nCompletion then
+                    -- Cycle completions
+                    clear()
+                    if param == keys.up then
+                        nCompletion = nCompletion - 1
+                        if nCompletion < 1 then
+                            nCompletion = #tCompletions
+                        end
+                    elseif param == keys.down then
+                        nCompletion = nCompletion + 1
+                        if nCompletion > #tCompletions then
+                            nCompletion = 1
+                        end
+                    end
+                    redraw()
+
+                elseif _tHistory then
+                    -- Cycle history
+                    clear()
+                    if param == keys.up then
+                        -- Up
+                        if nHistoryPos == nil then
+                            if #_tHistory > 0 then
+                                nHistoryPos = #_tHistory
+                            end
+                        elseif nHistoryPos > 1 then
+                            nHistoryPos = nHistoryPos - 1
+                        end
+                    else
+                        -- Down
+                        if nHistoryPos == #_tHistory then
+                            nHistoryPos = nil
+                        elseif nHistoryPos ~= nil then
+                            nHistoryPos = nHistoryPos + 1
+                        end                        
+                    end
+                    if nHistoryPos then
+                        sLine = _tHistory[nHistoryPos]
+                        nPos = utf8.len( sLine ) 
+                    else
+                        sLine = ""
+                        nPos = 0
+                    end
+                    uncomplete()
+                    redraw()
+
+                end
+
+            elseif param == keys.backspace then
+                -- Backspace
+                if nPos > 0 then
+                    clear()
+                    sLine = utf8.sub( sLine, 1, nPos - 1 ) .. utf8.sub( sLine, nPos + 1 )
+                    nPos = nPos - 1
+                    recomplete()
+                    redraw()
+                end
+
+            elseif param == keys.home then
+                -- Home
+                if nPos > 0 then
+                    clear()
+                    nPos = 0
+                    recomplete()
+                    redraw()
+                end
+
+            elseif param == keys.delete then
+                -- Delete
+                if nPos < utf8.len(sLine) then
+                    clear()
+                    sLine = utf8.sub( sLine, 1, nPos ) .. utf8.sub( sLine, nPos + 2 )                
+                    recomplete()
+                    redraw()
+                end
+
+            elseif param == keys["end"] then
+                -- End
+                if nPos < utf8.len(sLine ) then
+                    clear()
+                    nPos = utf8.len(sLine)
+                    recomplete()
+                    redraw()
+                end
+
+            elseif param == keys.tab then
+                -- Tab (accept autocomplete)
+                acceptCompletion()
+
+            end
+
+        elseif sEvent == "term_resize" then
+            -- Terminal resized
+            w = term.getSize()
+            redraw()
+
+        end
+    end
+
+    local cx, cy = term.getCursorPos()
+    term.setCursorBlink( false )
+    term.setCursorPos( w + 1, cy )
+    print()
+    
+    return sLine
+end
+
 loadfile = function( _sFile, _tEnv )
     if type( _sFile ) ~= "string" then
         error( "bad argument #1 (expected string, got " .. type( _sFile ) .. ")", 2 ) 
@@ -581,11 +989,39 @@ loadfile = function( _sFile, _tEnv )
     return nil, "File not found"
 end
 
+loadfileutf8 = function( _sFile, _tEnv )
+    if type( _sFile ) ~= "string" then
+        error( "bad argument #1 (expected string, got " .. type( _sFile ) .. ")", 2 ) 
+    end
+    if _tEnv ~= nil and type( _tEnv ) ~= "table" then
+        error( "bad argument #2 (expected table, got " .. type( _tEnv ) .. ")", 2 ) 
+    end
+    local file = fs.open( _sFile, "ru" )
+    if file then
+        local func, err = load( file.readAll(), fs.getName( _sFile ), "t", _tEnv )
+        file.close()
+        return func, err
+    end
+    return nil, "File not found"
+end
+
 dofile = function( _sFile )
     if type( _sFile ) ~= "string" then
         error( "bad argument #1 (expected string, got " .. type( _sFile ) .. ")", 2 ) 
     end
     local fnFile, e = loadfile( _sFile, _G )
+    if fnFile then
+        return fnFile()
+    else
+        error( e, 2 )
+    end
+end
+
+dofileutf8 = function( _sFile )
+    if type( _sFile ) ~= "string" then
+        error( "bad argument #1 (expected string, got " .. type( _sFile ) .. ")", 2 ) 
+    end
+    local fnFile, e = loadfileutf8( _sFile, _G )
     if fnFile then
         return fnFile()
     else
@@ -623,6 +1059,35 @@ function os.run( _tEnv, _sPath, ... )
     return false
 end
 
+function os.runutf8( _tEnv, _sPath, ... )
+    if type( _tEnv ) ~= "table" then
+        error( "bad argument #1 (expected table, got " .. type( _tEnv ) .. ")", 2 ) 
+    end
+    if type( _sPath ) ~= "string" then
+        error( "bad argument #2 (expected string, got " .. type( _sPath ) .. ")", 2 ) 
+    end
+    local tArgs = table.pack( ... )
+    local tEnv = _tEnv
+    setmetatable( tEnv, { __index = _G } )
+    local fnFile, err = loadfileutf8( _sPath, tEnv )
+    if fnFile then
+        local ok, err = pcall( function()
+            fnFile( table.unpack( tArgs, 1, tArgs.n ) )
+        end )
+        if not ok then
+            if err and err ~= "" then
+                printError( err )
+            end
+            return false
+        end
+        return true
+    end
+    if err and err ~= "" then
+        printError( err )
+    end
+    return false
+end
+
 local tAPIsLoading = {}
 function os.loadAPI( _sPath )
     if type( _sPath ) ~= "string" then
@@ -641,6 +1106,47 @@ function os.loadAPI( _sPath )
     local tEnv = {}
     setmetatable( tEnv, { __index = _G } )
     local fnAPI, err = loadfile( _sPath, tEnv )
+    if fnAPI then
+        local ok, err = pcall( fnAPI )
+        if not ok then
+            printError( err )
+            tAPIsLoading[sName] = nil
+            return false
+        end
+    else
+        printError( err )
+        tAPIsLoading[sName] = nil
+        return false
+    end
+    
+    local tAPI = {}
+    for k,v in pairs( tEnv ) do
+        if k ~= "_ENV" then
+            tAPI[k] =  v
+        end
+    end
+
+    _G[sName] = tAPI    
+    tAPIsLoading[sName] = nil
+    return true
+end
+function os.loadAPIUtf8( _sPath )
+    if type( _sPath ) ~= "string" then
+        error( "bad argument #1 (expected string, got " .. type( _sPath ) .. ")", 2 ) 
+    end
+    local sName = fs.getName( _sPath )
+    if sName:sub(-4) == ".lua" then
+        sName = sName:sub(1,-5)
+    end
+    if tAPIsLoading[sName] == true then
+        printError( "API "..sName.." is already being loaded" )
+        return false
+    end
+    tAPIsLoading[sName] = true
+
+    local tEnv = {}
+    setmetatable( tEnv, { __index = _G } )
+    local fnAPI, err = loadfileutf8( _sPath, tEnv )
     if fnAPI then
         local ok, err = pcall( fnAPI )
         if not ok then
@@ -860,6 +1366,20 @@ for n,sFile in ipairs( tApis ) do
         end
     end
 end
+if fs.isDir( "rom/apisutf8" ) then
+    -- load utf8 apis
+    local tApis = fs.list( "rom/apisutf8" )
+    for n,sFile in ipairs( tApis ) do
+        if string.sub( sFile, 1, 1 ) ~= "." then
+            local sPath = fs.combine( "rom/apisutf8", sFile )
+            if not fs.isDir( sPath ) then
+                if not os.loadAPIUtf8( sPath ) then
+                    bAPIError = true
+                end
+            end
+        end
+    end
+end
 
 if turtle and fs.isDir( "rom/apis/turtle" ) then
     -- Load turtle APIs
@@ -875,6 +1395,20 @@ if turtle and fs.isDir( "rom/apis/turtle" ) then
         end
     end
 end
+if turtle and fs.isDir( "rom/apisutf8/turtle" ) then
+    -- Load turtle APIs
+    local tApis = fs.list( "rom/apisutf8/turtle" )
+    for n,sFile in ipairs( tApis ) do
+        if string.sub( sFile, 1, 1 ) ~= "." then
+            local sPath = fs.combine( "rom/apisutf8/turtle", sFile )
+            if not fs.isDir( sPath ) then
+                if not os.loadAPIUtf8( sPath ) then
+                    bAPIError = true
+                end
+            end
+        end
+    end
+end
 
 if pocket and fs.isDir( "rom/apis/pocket" ) then
     -- Load pocket APIs
@@ -884,6 +1418,20 @@ if pocket and fs.isDir( "rom/apis/pocket" ) then
             local sPath = fs.combine( "rom/apis/pocket", sFile )
             if not fs.isDir( sPath ) then
                 if not os.loadAPI( sPath ) then
+                    bAPIError = true
+                end
+            end
+        end
+    end
+end
+if pocket and fs.isDir( "rom/apisutf8/pocket" ) then
+    -- Load pocket APIs
+    local tApis = fs.list( "rom/apisutf8/pocket" )
+    for n,sFile in ipairs( tApis ) do
+        if string.sub( sFile, 1, 1 ) ~= "." then
+            local sPath = fs.combine( "rom/apisutf8/pocket", sFile )
+            if not fs.isDir( sPath ) then
+                if not os.loadAPIUtf8( sPath ) then
                     bAPIError = true
                 end
             end

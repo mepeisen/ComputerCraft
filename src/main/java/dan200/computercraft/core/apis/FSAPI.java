@@ -6,6 +6,15 @@
 
 package dan200.computercraft.core.apis;
 
+import static dan200.computercraft.core.apis.ArgumentHelper.getString;
+
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Nonnull;
+
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.core.apis.handles.BinaryInputHandle;
@@ -14,14 +23,6 @@ import dan200.computercraft.core.apis.handles.EncodedInputHandle;
 import dan200.computercraft.core.apis.handles.EncodedOutputHandle;
 import dan200.computercraft.core.filesystem.FileSystem;
 import dan200.computercraft.core.filesystem.FileSystemException;
-
-import javax.annotation.Nonnull;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.HashMap;
-import java.util.Map;
-
-import static dan200.computercraft.core.apis.ArgumentHelper.getString;
 
 public class FSAPI implements ILuaAPI
 {
@@ -232,6 +233,24 @@ public class FSAPI implements ILuaAPI
                             // Open the file for appending, then create a wrapper around the writer
                             OutputStream writer = m_fileSystem.openForWrite( path, true );
                             return new Object[] { new EncodedOutputHandle( writer ) };
+                        }
+                        case "ru":
+                        {
+                            // Open the file for reading, then create a wrapper around the reader
+                            InputStream reader = m_fileSystem.openForRead( path );
+                            return new Object[] { new EncodedInputHandle( reader, true ) };
+                        }
+                        case "wu":
+                        {
+                            // Open the file for writing, then create a wrapper around the writer
+                            OutputStream writer = m_fileSystem.openForWrite( path, false );
+                            return new Object[] { new EncodedOutputHandle( writer, true ) };
+                        }
+                        case "au":
+                        {
+                            // Open the file for appending, then create a wrapper around the writer
+                            OutputStream writer = m_fileSystem.openForWrite( path, true );
+                            return new Object[] { new EncodedOutputHandle( writer, true ) };
                         }
                         case "rb":
                         {

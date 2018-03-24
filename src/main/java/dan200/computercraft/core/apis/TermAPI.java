@@ -6,16 +6,24 @@
 
 package dan200.computercraft.core.apis;
 
+import static dan200.computercraft.core.apis.ArgumentHelper.getBoolean;
+import static dan200.computercraft.core.apis.ArgumentHelper.getInt;
+import static dan200.computercraft.core.apis.ArgumentHelper.getReal;
+import static dan200.computercraft.core.apis.ArgumentHelper.getString;
+import static dan200.computercraft.core.apis.ArgumentHelper.getUtfString;
+
+import javax.annotation.Nonnull;
+
+import org.apache.commons.lang3.ArrayUtils;
+
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.core.computer.IComputerEnvironment;
 import dan200.computercraft.core.terminal.Terminal;
+import dan200.computercraft.shared.utf.UtfException;
+import dan200.computercraft.shared.utf.UtfString;
 import dan200.computercraft.shared.util.Palette;
-import org.apache.commons.lang3.ArrayUtils;
-
-import javax.annotation.Nonnull;
-
-import static dan200.computercraft.core.apis.ArgumentHelper.*;
+import dan200.computercraft.shared.util.StringUtil;
 
 public class TermAPI implements ILuaAPI
 {
@@ -78,7 +86,11 @@ public class TermAPI implements ILuaAPI
             "setPaletteColour",
             "setPaletteColor",
             "getPaletteColour",
-            "getPaletteColor"
+            "getPaletteColor",
+            "writeutf8",
+            "blitutf8",
+            "getFontName",
+            "setFontName"
         };
     }
     
@@ -297,6 +309,71 @@ public class TermAPI implements ILuaAPI
                     }
                 }
                 return null;
+            }
+            case 23:
+            {
+                // writeutf8
+                if( args.length > 0 && args[0] != null ) {
+                    
+                    synchronized( m_terminal )
+                    {
+                    	try
+                    	{
+	                    	final byte[] bytes = StringUtil.encodeString(args[0].toString());
+	                    	final UtfString text = new UtfString(bytes, 0, -1);
+	                        m_terminal.write( text );
+	                        m_terminal.setCursorPos( m_terminal.getCursorX() + text.length(), m_terminal.getCursorY() );
+                    	}
+                    	catch (UtfException ex)
+                    	{
+                    		throw new LuaException(ex.getMessage());
+                    	}
+                    }
+                } else {
+                	// maybe not needed because it does nothing?
+                	// however the original write method does the same
+                    synchronized( m_terminal )
+                    {
+                        m_terminal.write( "" );
+                        m_terminal.setCursorPos( m_terminal.getCursorX() + 0, m_terminal.getCursorY() );
+                    }
+                }
+                return null;
+            }
+            case 24:
+            {
+                // blitutf8
+                UtfString text = getUtfString( args, 0 );
+                UtfString textColour = getUtfString( args, 1 );
+                UtfString backgroundColour = getUtfString( args, 2 );
+                if( textColour.length() != text.length() || backgroundColour.length() != text.length() )
+                {
+                    throw new LuaException( "Arguments must be the same length" );
+                }
+
+                synchronized( m_terminal )
+                {
+                    m_terminal.blit( text, textColour, backgroundColour );
+                    m_terminal.setCursorPos( m_terminal.getCursorX() + text.length(), m_terminal.getCursorY() );
+                }
+                return null;
+            }
+            case 25:
+            {
+            	// getFontName
+            	synchronized( m_terminal )
+                {
+            		return new Object[] { m_terminal.getFontName() };
+                }
+            }
+            case 26:
+            {
+            	// setFontName
+            	synchronized( m_terminal )
+                {
+            		m_terminal.setFontName(getString(args, 0));
+            		return null;
+                }
             }
             default:
             {

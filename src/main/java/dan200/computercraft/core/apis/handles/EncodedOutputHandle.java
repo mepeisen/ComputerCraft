@@ -2,18 +2,23 @@ package dan200.computercraft.core.apis.handles;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.shared.util.StringUtil;
 
 import javax.annotation.Nonnull;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class EncodedOutputHandle extends HandleGeneric
 {
     private final BufferedWriter m_writer;
+    
+    private final boolean doNotWrapUtf8;
 
     public EncodedOutputHandle( BufferedWriter writer )
     {
         super( writer );
         this.m_writer = writer;
+        doNotWrapUtf8 = false;
     }
 
     public EncodedOutputHandle( OutputStream stream )
@@ -24,6 +29,23 @@ public class EncodedOutputHandle extends HandleGeneric
     public EncodedOutputHandle( OutputStream stream, String encoding )
     {
         this( makeWriter( stream, encoding ) );
+    }
+
+    public EncodedOutputHandle( BufferedWriter writer, boolean doNotWrapUtf8 )
+    {
+        super( writer );
+        this.m_writer = writer;
+        this.doNotWrapUtf8 = doNotWrapUtf8;
+    }
+
+    public EncodedOutputHandle( OutputStream stream, boolean doNotWrapUtf8 )
+    {
+        this( stream, "UTF-8", doNotWrapUtf8 );
+    }
+
+    public EncodedOutputHandle( OutputStream stream, String encoding, boolean doNotWrapUtf8 )
+    {
+        this( makeWriter( stream, encoding ), doNotWrapUtf8 );
     }
 
     private static BufferedWriter makeWriter( OutputStream stream, String encoding )
@@ -73,7 +95,15 @@ public class EncodedOutputHandle extends HandleGeneric
                 }
                 try
                 {
-                    m_writer.write( text, 0, text.length() );
+                	if (this.doNotWrapUtf8)
+                	{
+                		// we assume that this is originally an LuaString wrapped by conversions from byte to char
+                        m_writer.write( new String(StringUtil.encodeString(text), StandardCharsets.UTF_8) );
+                	}
+                	else
+                	{
+                		m_writer.write( text, 0, text.length() );
+                	}
                     return null;
                 }
                 catch( IOException e )
@@ -96,7 +126,15 @@ public class EncodedOutputHandle extends HandleGeneric
                 }
                 try
                 {
-                    m_writer.write( text, 0, text.length() );
+                	if (this.doNotWrapUtf8)
+                	{
+                		// we assume that this is originally an LuaString wrapped by conversions from byte to char
+                        m_writer.write( new String(StringUtil.encodeString(text), StandardCharsets.UTF_8) );
+                	}
+                	else
+                	{
+                		m_writer.write( text, 0, text.length() );
+                	}
                     m_writer.newLine();
                     return null;
                 }

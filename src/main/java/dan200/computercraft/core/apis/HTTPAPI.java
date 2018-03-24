@@ -116,16 +116,32 @@ public class HTTPAPI implements ILuaAPI
                 
                 // Get binary
                 boolean binary = false;
+                boolean doNotWrapUtf8 = false;
                 if( args.length >= 4 )
                 {
-                    binary = args[ 3 ] != null && !args[ 3 ].equals( Boolean.FALSE );
+                	if (args[3] instanceof Boolean)
+                	{
+                		binary = Boolean.FALSE.equals(args[3]);
+                	}
+                	else if (args[3] instanceof Number)
+                	{
+                		int num = ((Number)args[3]).intValue();
+                		if (num == 0)
+                		{
+                			binary = true;
+                		}
+                		else if (num == 2)
+                		{
+                			doNotWrapUtf8 = true;
+                		}
+                	}
                 }
 
                 // Make the request
                 try
                 {
                     URL url = HTTPRequest.checkURL( urlString );
-                    HTTPRequest request = new HTTPRequest( urlString, url, postString, headers, binary );
+                    HTTPRequest request = new HTTPRequest( urlString, url, postString, headers, binary, doNotWrapUtf8 );
                     synchronized( m_httpTasks )
                     {
                         m_httpTasks.add( HTTPTask.submit( request ) );

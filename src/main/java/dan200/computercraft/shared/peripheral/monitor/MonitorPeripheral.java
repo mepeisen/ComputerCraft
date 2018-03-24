@@ -12,7 +12,11 @@ import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.core.apis.TermAPI;
 import dan200.computercraft.core.terminal.Terminal;
+import dan200.computercraft.shared.utf.UtfException;
+import dan200.computercraft.shared.utf.UtfString;
 import dan200.computercraft.shared.util.Palette;
+import dan200.computercraft.shared.util.StringUtil;
+
 import org.apache.commons.lang3.ArrayUtils;
 
 import javax.annotation.Nonnull;
@@ -65,7 +69,11 @@ public class MonitorPeripheral implements IPeripheral
             "setPaletteColour",
             "setPaletteColor",
             "getPaletteColour",
-            "getPaletteColor"
+            "getPaletteColor",
+            "writeutf8",
+            "blitutf8",
+            "getFontName",
+            "setFontName"
         };
     }
 
@@ -248,6 +256,59 @@ public class MonitorPeripheral implements IPeripheral
                     return ArrayUtils.toObject( palette.getColour( colour ) );
                 }
                 return null;
+            }
+            case 24:
+            {
+                // writeutf8
+            	Terminal terminal = m_monitor.getTerminal().getTerminal();
+                if( args.length > 0 && args[0] != null ) {
+                    
+                    try
+                    {
+	                   	final byte[] bytes = StringUtil.encodeString(args[0].toString());
+	                   	final UtfString text = new UtfString(bytes, 0, -1);
+	                    terminal.write( text );
+	                    terminal.setCursorPos( terminal.getCursorX() + text.length(), terminal.getCursorY() );
+                    }
+                    catch (UtfException ex)
+                    {
+                    	throw new LuaException(ex.getMessage());
+                    }
+                } else {
+                	// maybe not needed because it does nothing?
+                	// however the original write method does the same
+                    terminal.write( "" );
+                    terminal.setCursorPos( terminal.getCursorX() + 0, terminal.getCursorY() );
+                }
+                return null;
+            }
+            case 25:
+            {
+                // blitutf8
+                UtfString text = getUtfString( args, 0 );
+                UtfString textColour = getUtfString( args, 1 );
+                UtfString backgroundColour = getUtfString( args, 2 );
+                if( textColour.length() != text.length() || backgroundColour.length() != text.length() )
+                {
+                    throw new LuaException( "Arguments must be the same length" );
+                }
+
+            	Terminal terminal = m_monitor.getTerminal().getTerminal();
+            	terminal.blit( text, textColour, backgroundColour );
+                terminal.setCursorPos( terminal.getCursorX() + text.length(), terminal.getCursorY() );
+                return null;
+            }
+            case 26:
+            {
+            	// getFontName
+            	return new Object[] {m_monitor.getTerminal().getTerminal().getFontName()};
+            }
+            case 27:
+            {
+            	// setFontName
+            	final String name = getString(args, 0);
+            	m_monitor.getTerminal().getTerminal().setFontName(name);
+            	return null;
             }
         }
         return null;

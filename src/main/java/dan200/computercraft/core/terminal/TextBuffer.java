@@ -6,16 +6,28 @@
 
 package dan200.computercraft.core.terminal;
 
+import dan200.computercraft.shared.utf.UtfException;
+import dan200.computercraft.shared.utf.UtfString;
+
 public class TextBuffer
 {
-    public char[] m_text;
+    private int[] m_text;
 
     public TextBuffer( char c, int length )
     {
-        m_text = new char[length];
+        m_text = new int[length];
         for( int i = 0; i < length; ++i )
         {
             m_text[i] = c;
+        }
+    }
+
+    public TextBuffer( int codepoint, int length )
+    {
+        m_text = new int[length];
+        for( int i = 0; i < length; ++i )
+        {
+            m_text[i] = codepoint;
         }
     }
 
@@ -24,10 +36,20 @@ public class TextBuffer
         this( text, 1 );
     }
 
+    public TextBuffer( UtfString text )
+    {
+        this( text, 1 );
+    }
+
     public TextBuffer( String text, int repetitions )
     {
+        this(UtfString.fromString(text), repetitions);
+    }
+
+    public TextBuffer( UtfString text, int repetitions )
+    {
         int textLength = text.length();
-        m_text = new char[ textLength * repetitions ];
+        m_text = new int[ textLength * repetitions ];
         for( int i = 0; i < repetitions; ++i )
         {
             for( int j = 0; j < textLength; ++j )
@@ -45,12 +67,12 @@ public class TextBuffer
     public TextBuffer( TextBuffer text, int repetitions )
     {
         int textLength = text.length();
-        m_text = new char[ textLength * repetitions ];
+        m_text = new int[ textLength * repetitions ];
         for( int i = 0; i < repetitions; ++i )
         {
             for( int j = 0; j < textLength; ++j )
             {
-                m_text[ j + i * textLength ] = text.charAt(j  );
+                m_text[ j + i * textLength ] = text.codepointAt(j  );
             }
         }
     }
@@ -78,6 +100,24 @@ public class TextBuffer
         return new String( m_text, start, textLength );
     }
 
+    public UtfString readUtf()
+    {
+        return readUtf( 0, m_text.length );
+    }
+
+    public UtfString readUtf( int start )
+    {
+        return new UtfString( m_text, start, m_text.length - start );
+    }
+
+    public UtfString readUtf( int start, int end )
+    {
+        start = Math.max( start, 0 );
+        end = Math.min( end, m_text.length );
+        int textLength = Math.max( end - start, 0 );
+        return new UtfString( m_text, start, textLength );
+    }
+
     public void write( String text )
     {
         write( text, 0, text.length() );
@@ -88,7 +128,7 @@ public class TextBuffer
         write( text, start, start + text.length() );
     }
 
-    public void write( String text, int start, int end )
+    public void write( UtfString text, int start, int end )
     {
         int pos = start;
         start = Math.max( start, 0 );
@@ -98,6 +138,21 @@ public class TextBuffer
         {
             m_text[i] = text.charAt( i - pos );
         }
+    }
+
+    public void write( UtfString text )
+    {
+        write( text, 0, text.length() );
+    }
+
+    public void write( UtfString text, int start )
+    {
+        write( text, start, start + text.length() );
+    }
+
+    public void write( String text, int start, int end )
+    {
+    	write(UtfString.fromString(text), start, end);
     }
 
     public void write( TextBuffer text )
@@ -118,7 +173,7 @@ public class TextBuffer
         end = Math.min( end, m_text.length );
         for( int i=start; i<end; ++i )
         {
-            m_text[i] = text.charAt( i - pos );
+            m_text[i] = text.codepointAt( i - pos );
         }
     }
 
@@ -142,6 +197,26 @@ public class TextBuffer
         }
     }
 
+    public void fill( int codepoint )
+    {
+        fill( codepoint, 0, m_text.length );
+    }
+
+    public void fill( int codepoint, int start )
+    {
+        fill( codepoint, start, m_text.length );
+    }
+
+    public void fill( int codepoint, int start, int end )
+    {
+        start = Math.max( start, 0 );
+        end = Math.min( end, m_text.length );
+        for( int i=start; i<end; ++i )
+        {
+            m_text[i] = codepoint;
+        }
+    }
+
     public void fill( String text )
     {
         fill( text, 0, m_text.length );
@@ -153,6 +228,21 @@ public class TextBuffer
     }
 
     public void fill( String text, int start, int end )
+    {
+        fill(UtfString.fromString(text), start, end);
+    }
+
+    public void fill( UtfString text )
+    {
+        fill( text, 0, m_text.length );
+    }
+
+    public void fill( UtfString text, int start )
+    {
+        fill( text, start, m_text.length );
+    }
+
+    public void fill( UtfString text, int start, int end )
     {
         int pos = start;
         start = Math.max( start, 0 );
@@ -190,6 +280,13 @@ public class TextBuffer
 
     public char charAt( int i )
     {
+    	int c = m_text[ i ];
+    	if (!Character.isBmpCodePoint(c)) return '?';
+        return (char) m_text[ i ];
+    }
+
+    public int codepointAt( int i )
+    {
         return m_text[ i ];
     }
 
@@ -201,8 +298,20 @@ public class TextBuffer
         }
     }
 
+    public void setChar( int i, int codepoint )
+    {
+        if( i >= 0 && i <m_text.length )
+        {
+            m_text[ i ] = codepoint;
+        }
+    }
+
     public String toString()
     {
-        return new String( m_text );
+        try {
+			return new UtfString( m_text ).toJString();
+		} catch (UtfException e) {
+			return "";
+		}
     }
 }
