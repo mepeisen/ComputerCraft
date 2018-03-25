@@ -23,8 +23,8 @@ public class FixedWidthFontRenderer
 	
     public static ResourceLocation background = new ResourceLocation( "computercraft", "textures/gui/term_background.png" );
 
-    public static final int FONT_HEIGHT = FontManager.LEGACY.fontHeight(); // original values
-    public static final int FONT_WIDTH = FontManager.LEGACY.fontWidth(); // original values
+    public static final int FONT_HEIGHT = FontManager.LEGACY.getPart(' ').fontHeight(); // original values
+    public static final int FONT_WIDTH = FontManager.LEGACY.getPart(' ').fontWidth(); // original values
 
     private TextureManager m_textureManager;
 
@@ -38,10 +38,10 @@ public class FixedWidthFontRenderer
         Arrays.fill( rgb, ( rgb[0] + rgb[1] + rgb[2] ) / 3.0f );
     }
 
-    private void drawChar( FontDefinition fd, BufferBuilder renderer, double x, double y, int index, int color, Palette p, boolean greyscale )
+    private void drawChar( FontPart fd, BufferBuilder renderer, double x, double y, int index, int color, Palette p, boolean greyscale )
     {
-        int column = index % fd.charsPerLine();
-        int row = index / fd.charsPerLine();
+        int column = (index - fd.begin()) % fd.charsPerLine();
+        int row = (index - fd.begin()) / fd.charsPerLine();
 
         double[] colour = p.getColour( 15 - color );
         if(greyscale)
@@ -125,7 +125,7 @@ public class FixedWidthFontRenderer
         GlStateManager.enableTexture2D();
     }
 
-    private void drawStringTextPart( int x, int y, TextBuffer s, TextBuffer textColour, boolean greyScale, Palette p )
+    public void drawStringTextPart( int x, int y, TextBuffer s, TextBuffer textColour, boolean greyScale, Palette p )
     {
     	drawStringTextPart(FontManager.LEGACY, x, y, s, textColour, greyScale, p);
     }
@@ -135,9 +135,40 @@ public class FixedWidthFontRenderer
         // Draw the quads
         Tessellator tessellator = Tessellator.getInstance();
         BufferBuilder renderer = tessellator.getBuffer();
-        renderer.begin( GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX_COLOR );
-        for( int i = 0; i < s.length(); i++ )
+    	FontPart curPart = null;
+
+    	for( int i = 0; i < s.length(); i++ )
         {
+            // Draw char
+            int index = s.codepointAt( i );
+            if( index < 0 || index > fd.maxChars() )
+            {
+                index = (int)'?';
+            }
+            FontPart newPart = fd.getPart(index);
+            if (newPart == null)
+            {
+            	// fall back to '?'
+            	index = (int)'?';
+            	newPart = fd.getPart(index);
+            }
+            
+            // if newPart is null this font is corrupt... It does not know how to display simple quotion mark ('?')
+            if (newPart != null)
+            {
+            	if (curPart != newPart)
+            	{
+            		if (curPart != null)
+            		{
+            	        tessellator.draw();
+            		}
+            		curPart = newPart;
+            		// begin drawing using this font part
+            		bindFont(fd, curPart);
+            		renderer.begin( GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX_COLOR );
+            	}
+            }
+    	            
             // Switch colour
             int colour = "0123456789abcdef".indexOf( textColour.charAt( i ) );
             if( colour < 0 || ( greyScale && !isGreyScale( colour ) ) )
@@ -145,18 +176,17 @@ public class FixedWidthFontRenderer
                 colour = 0;
             }
 
-            // Draw char
-            int index = s.codepointAt( i );
-            if( index < 0 || index > fd.maxChars() )
-            {
-                index = (int)'?';
-            }
-            drawChar( fd, renderer, x + i * FONT_WIDTH, y, index, colour, p, greyScale );
+            drawChar( curPart, renderer, x + i * FONT_WIDTH, y, index, colour, p, greyScale );
         }
-        tessellator.draw();
+    	
+    	if (curPart != null)
+    	{
+    		// we did draw something. Finish it.
+    		tessellator.draw();
+    	}
     }
 
-    private void drawString( TextBuffer s, int x, int y, TextBuffer textColour, TextBuffer backgroundColour, double leftMarginSize, double rightMarginSize, boolean greyScale, Palette p )
+    public void drawString( TextBuffer s, int x, int y, TextBuffer textColour, TextBuffer backgroundColour, double leftMarginSize, double rightMarginSize, boolean greyScale, Palette p )
     {
     	drawString(FontManager.LEGACY, s, x, y, textColour, backgroundColour, leftMarginSize, rightMarginSize, greyScale, p);
     }
@@ -176,9 +206,6 @@ public class FixedWidthFontRenderer
         // Draw text
         if( s != null && textColour != null )
         {
-            // Bind the font texture
-            bindFont(fd);
-            
             // Draw the quads
             drawStringTextPart( fd, x, y, s, textColour, greyScale, p );
         }
@@ -193,14 +220,19 @@ public class FixedWidthFontRenderer
         return s.length() * FONT_WIDTH;
     }
 
-    private void bindFont()
+    public void bindFont()
     {
         bindFont(FontManager.LEGACY);
     }
 
     public void bindFont(FontDefinition fd)
     {
-        m_textureManager.bindTexture( fd.font() );
+        bindFont(fd, fd.getPart(' '));
+    }
+
+    public void bindFont(FontDefinition fd, FontPart part)
+    {
+        m_textureManager.bindTexture( part.font() );
         GlStateManager.glTexParameteri( GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP );
         if (fd.isBlending())
         {

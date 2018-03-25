@@ -24,8 +24,13 @@ public class FontManager {
 	private TextureManager m_textureManager;
 	
 	public static final FontDefinition LEGACY = new FontDefinition(
-			"LEGACY", new ResourceLocation( "computercraft", "textures/gui/term_font.png" ),
-			9, 6, 256, 16, 256.0, 256.0, false);
+			"LEGACY", 256, false,
+			new FontPart(
+					new ResourceLocation( "computercraft", "textures/gui/term_font.png" ),
+					9, 6,
+					0, 256,
+					16,
+					256.0, 256.0));
 	
 	public FontManager(TextureManager textureManager)
 	{
@@ -61,23 +66,57 @@ public class FontManager {
 				try (final InputStream is = mount.openForRead(f))
 				{
 					props.load(is);
-					if (!"1".equals(props.getProperty("version")))
+					FontDefinition fd = null;
+					if ("1".equals(props.getProperty("version")))
 					{
-						ComputerCraft.log.error("font version " + fname + ":" + props.getProperty("version") + " not supported");
+						 fd = new FontDefinition(
+									fname,
+									Integer.parseInt(props.getProperty("maxChars")),
+									"true".equalsIgnoreCase(props.getProperty("blending")),
+									new FontPart(
+											new ResourceLocation( "computercraft", "textures/gui/fonts/" + png ),
+											Integer.parseInt(props.getProperty("fontHeight")),
+											Integer.parseInt(props.getProperty("fontWidth")),
+											0,
+											Integer.parseInt(props.getProperty("maxChars")),
+											Integer.parseInt(props.getProperty("charsPerLine")),
+											Integer.parseInt(props.getProperty("texWidth")),
+											Integer.parseInt(props.getProperty("texHeight"))
+									
+									));
+					}
+					else if ("2".equals(props.getProperty("version")))
+					{
+						final List<FontPart> parts = new ArrayList<>();
+						int partcount = Integer.parseInt(props.getProperty("parts"));
+						for (int partno = 0; partno < partcount; partno++) {
+							parts.add(
+									new FontPart(
+											new ResourceLocation( "computercraft", "textures/gui/fonts/" + props.getProperty("texture_"+partno) ),
+											Integer.parseInt(props.getProperty("fontHeight_"+partno)),
+											Integer.parseInt(props.getProperty("fontWidth_"+partno)),
+											Integer.parseInt(props.getProperty("start_"+partno)),
+											Integer.parseInt(props.getProperty("end_"+partno)),
+											Integer.parseInt(props.getProperty("charsPerLine_"+partno)),
+											Integer.parseInt(props.getProperty("texWidth_"+partno)),
+											Integer.parseInt(props.getProperty("texHeight_"+partno))
+									));
+						}
+
+						fd = new FontDefinition(
+									fname,
+									Integer.parseInt(props.getProperty("maxChars")),
+									"true".equalsIgnoreCase(props.getProperty("blending")),
+									parts.toArray(new FontPart[parts.size()]));
 					}
 					else
 					{
-						FontDefinition fd = new FontDefinition(
-							fname, new ResourceLocation( "computercraft", "textures/gui/fonts/" + png ),
-							Integer.parseInt(props.getProperty("fontHeight")),
-							Integer.parseInt(props.getProperty("fontWidth")),
-							Integer.parseInt(props.getProperty("maxChars")),
-							Integer.parseInt(props.getProperty("charsPerLine")),
-							Integer.parseInt(props.getProperty("texWidth")),
-							Integer.parseInt(props.getProperty("texHeight")),
-							"true".equalsIgnoreCase(props.getProperty("blending"))
-							);
-						m_textureManager.bindTexture( fd.font() );
+						ComputerCraft.log.error("font version " + fname + ":" + props.getProperty("version") + " not supported");
+					}
+					
+					if (fd != null)
+					{
+						fd.getParts().forEach(fp -> m_textureManager.bindTexture( fp.font() ));
 						fonts.put(fname, fd);
 					}
 				}

@@ -1,73 +1,53 @@
 package dan200.computercraft.client.gui;
 
-import net.minecraft.util.ResourceLocation;
+import java.util.List;
+
+import scala.actors.threadpool.Arrays;
 
 public class FontDefinition {
 
-	private final ResourceLocation font;
-    private final int fontHeight;
-    private final int fontWidth;
-    private final double texHeight;
-    private final double texWidth;
     private final int maxChars;
-    private final int charsPerLine;
 	private final String name;
 	private final boolean blending;
+	private final FontPart[] parts;
     
-    protected FontDefinition(String name, ResourceLocation font, int fontHeight, int fontWidth, int maxChars, int charsPerLine, double texWidth, double texHeight, boolean blending) {
+    protected FontDefinition(String name, int maxChars, boolean blending, FontPart... parts) {
 		this.name = name;
-    	this.font = font;
-		this.fontHeight = fontHeight;
-		this.fontWidth = fontWidth;
 		this.maxChars = maxChars;
-		this.charsPerLine = charsPerLine;
-		this.texWidth = texWidth;
-		this.texHeight = texHeight;
 		this.blending = blending;
+		this.parts = parts;
 	}
     
     public String name()
     {
     	return this.name;
     }
-
-	public ResourceLocation font()
-    {
-    	return this.font;
-    }
     
-	public int fontHeight()
+    @SuppressWarnings("unchecked")
+	public List<FontPart> getParts()
     {
-    	return this.fontHeight;
-    }
-    
-	public int fontWidth()
-    {
-    	return this.fontWidth;
+    	return Arrays.asList(this.parts);
     }
     
 	public int maxChars()
     {
     	return this.maxChars;
     }
-    
-	public int charsPerLine()
-    {
-    	return this.charsPerLine;
-    }
-    
-	public double texWidth()
-    {
-    	return texWidth;
-    }
-    
-	public double texHeight()
-    {
-    	return texHeight;
-    }
 
 	public boolean isBlending() {
 		return blending;
+	}
+	
+	public FontPart getPart(int codepoint)
+	{
+		for (final FontPart part : this.parts)
+		{
+			if (codepoint >= part.begin() && codepoint <= part.end())
+			{
+				return part;
+			}
+		}
+		return null;
 	}
 
 }
