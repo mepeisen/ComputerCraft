@@ -202,5 +202,10 @@ public class FixedWidthFontRenderer
     {
         m_textureManager.bindTexture( fd.font() );
         GlStateManager.glTexParameteri( GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_CLAMP );
+        if (fd.isBlending())
+        {
+        	GlStateManager.enableBlend();
+        	GlStateManager.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+        }
     }
 }

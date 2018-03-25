@@ -14,18 +14,22 @@ import dan200.computercraft.api.filesystem.IMount;
 import dan200.computercraft.core.filesystem.FileMount;
 import dan200.computercraft.core.filesystem.JarMount;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.TextureManager;
 import net.minecraft.util.ResourceLocation;
 
 public class FontManager {
 	
 	private Map<String, FontDefinition> fonts = new HashMap<>();
+
+	private TextureManager m_textureManager;
 	
 	public static final FontDefinition LEGACY = new FontDefinition(
 			"LEGACY", new ResourceLocation( "computercraft", "textures/gui/term_font.png" ),
-			9, 6, 256, 16, 256.0, 256.0);
+			9, 6, 256, 16, 256.0, 256.0, false);
 	
-	public FontManager()
+	public FontManager(TextureManager textureManager)
 	{
+		this.m_textureManager = textureManager;
 		this.loadFonts();
 	}
 	
@@ -63,15 +67,18 @@ public class FontManager {
 					}
 					else
 					{
-						fonts.put(fname, new FontDefinition(
+						FontDefinition fd = new FontDefinition(
 							fname, new ResourceLocation( "computercraft", "textures/gui/fonts/" + png ),
 							Integer.parseInt(props.getProperty("fontHeight")),
 							Integer.parseInt(props.getProperty("fontWidth")),
 							Integer.parseInt(props.getProperty("maxChars")),
 							Integer.parseInt(props.getProperty("charsPerLine")),
 							Integer.parseInt(props.getProperty("texWidth")),
-							Integer.parseInt(props.getProperty("texHeight"))
-							));
+							Integer.parseInt(props.getProperty("texHeight")),
+							"true".equalsIgnoreCase(props.getProperty("blending"))
+							);
+						m_textureManager.bindTexture( fd.font() );
+						fonts.put(fname, fd);
 					}
 				}
 				catch (IOException | NullPointerException | NumberFormatException ex)

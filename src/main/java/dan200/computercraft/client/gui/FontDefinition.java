@@ -12,8 +12,9 @@ public class FontDefinition {
     private final int maxChars;
     private final int charsPerLine;
 	private final String name;
+	private final boolean blending;
     
-    public FontDefinition(String name, ResourceLocation font, int fontHeight, int fontWidth, int maxChars, int charsPerLine, double texWidth, double texHeight) {
+    protected FontDefinition(String name, ResourceLocation font, int fontHeight, int fontWidth, int maxChars, int charsPerLine, double texWidth, double texHeight, boolean blending) {
 		this.name = name;
     	this.font = font;
 		this.fontHeight = fontHeight;
@@ -22,6 +23,7 @@ public class FontDefinition {
 		this.charsPerLine = charsPerLine;
 		this.texWidth = texWidth;
 		this.texHeight = texHeight;
+		this.blending = blending;
 	}
     
     public String name()
@@ -63,5 +65,9 @@ public class FontDefinition {
     {
     	return texHeight;
     }
+
+	public boolean isBlending() {
+		return blending;
+	}
 
 }

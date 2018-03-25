@@ -563,6 +563,8 @@ public class ComputerCraftProxyClient extends ComputerCraftProxyCommon
 
 	@Override
 	public void postInit() {
-        this.fontManager = new FontManager();
+		Minecraft mc = Minecraft.getMinecraft();
+        this.fontManager = new FontManager(mc.getTextureManager());
 	}
+	
 }
